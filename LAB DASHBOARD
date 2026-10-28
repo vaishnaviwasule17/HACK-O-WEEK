@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabGrid · Cloud Lab &amp; Attendance Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg: #0E2A47;
+  --bg-deep: #0A2138;
+  --panel: #123A5E;
+  --panel-2: #163F66;
+  --line: rgba(255,255,255,0.09);
+  --line-strong: rgba(255,255,255,0.18);
+  --ink: #EAF2FB;
+  --ink-muted: #9FB8D1;
+  --chalk: #7DD3FC;
+  --amber: #F5A524;
+  --good: #34D399;
+  --bad: #F87171;
+  --warn: #FBBF24;
+  --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0/40px 40px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/40px 40px,
+    var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:14px;
+  min-height:100vh;
+}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;}
+
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh;}
+
+/* Sidebar */
+.sidebar{
+  background:var(--bg-deep);
+  border-right:1px solid var(--line);
+  padding:22px 14px;
+  display:flex;flex-direction:column;gap:6px;
+  position:sticky;top:0;height:100vh;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:8px;
+  background:linear-gradient(135deg,var(--chalk),var(--amber));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:600;color:var(--bg-deep);font-size:13px;
+}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:.3px;}
+.brand-sub{font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);letter-spacing:1px;text-transform:uppercase;}
+
+.navgroup-label{font-family:var(--font-mono);font-size:10px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:1.5px;padding:14px 10px 6px;}
+.navbtn{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;cursor:pointer;
+  color:var(--ink-muted);font-size:13.5px;font-weight:500;
+  border:1px solid transparent;
+  transition:all .12s ease;
+  user-select:none;
+}
+.navbtn:hover{background:rgba(255,255,255,0.04);color:var(--ink);}
+.navbtn.active{background:var(--panel);color:var(--ink);border-color:var(--line-strong);}
+.navbtn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;flex-shrink:0;}
+.navbtn.active .dot{background:var(--chalk);opacity:1;}
+
+.sidebar-foot{margin-top:auto;padding:10px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-muted);border-top:1px solid var(--line);padding-top:14px;line-height:1.6;}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block;box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 2s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55);}70%{box-shadow:0 0 0 6px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}}
+
+/* Main */
+.main{padding:22px 28px 60px;max-width:1280px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.topbar h1{font-family:var(--font-display);font-size:22px;margin:0;font-weight:700;}
+.topbar .sub{color:var(--ink-muted);font-size:12.5px;margin-top:3px;font-family:var(--font-mono);}
+.ticker{
+  border:1px solid var(--line);background:var(--bg-deep);border-radius:10px;
+  padding:9px 14px;font-family:var(--font-mono);font-size:11.5px;color:var(--chalk);
+  display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden;max-width:420px;
+}
+
+.frame{
+  position:relative;border:1px solid var(--line-strong);background:var(--panel);
+  border-radius:12px;padding:18px;
+}
+.frame::before,.frame::after{
+  content:"";position:absolute;width:10px;height:10px;border:1.5px solid var(--chalk);opacity:.6;
+}
+.frame::before{top:-1px;left:-1px;border-right:none;border-bottom:none;border-top-left-radius:6px;}
+.frame::after{bottom:-1px;right:-1px;border-left:none;border-top:none;border-bottom-right-radius:6px;}
+
+.grid{display:grid;gap:16px;}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:18px;}
+.kpi-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:1px;}
+.kpi-value{font-family:var(--font-display);font-size:30px;font-weight:700;margin-top:6px;}
+.kpi-delta{font-size:11.5px;margin-top:4px;color:var(--ink-muted);}
+
+.section-title{font-family:var(--font-display);font-weight:700;font-size:16px;margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+.section-title .bar{width:20px;height:2px;background:var(--amber);}
+
+.cards2{grid-template-columns:2fr 1fr;}
+@media(max-width:980px){.cards2{grid-template-columns:1fr;}}
+.cards3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:980px){.cards3{grid-template-columns:1fr;}}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-muted);padding:8px 10px;border-bottom:1px solid var(--line-strong);}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--font-mono);}
+.badge.good{background:rgba(52,211,153,.14);color:var(--good);}
+.badge.bad{background:rgba(248,113,113,.14);color:var(--bad);}
+.badge.warn{background:rgba(251,191,36,.14);color:var(--warn);}
+.badge.chalk{background:rgba(125,211,252,.14);color:var(--chalk);}
+
+.btn{
+  font-family:var(--font-body);font-weight:600;font-size:12.5px;
+  padding:8px 14px;border-radius:7px;border:1px solid var(--line-strong);
+  background:transparent;color:var(--ink);cursor:pointer;transition:.12s;
+}
+.btn:hover{border-color:var(--chalk);color:var(--chalk);}
+.btn.primary{background:var(--chalk);color:var(--bg-deep);border-color:var(--chalk);}
+.btn.primary:hover{background:#a8e2fc;color:var(--bg-deep);}
+.btn.amber{background:var(--amber);color:var(--bg-deep);border-color:var(--amber);}
+.btn.ghost{border-color:transparent;color:var(--ink-muted);}
+.btn.ghost:hover{color:var(--bad);border-color:transparent;}
+.btn.sm{padding:5px 10px;font-size:11.5px;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+input,select{
+  font-family:var(--font-body);background:var(--bg-deep);border:1px solid var(--line-strong);
+  color:var(--ink);border-radius:7px;padding:8px 10px;font-size:13px;width:100%;
+}
+input::placeholder{color:var(--ink-muted);}
+label{font-size:11.5px;color:var(--ink-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px;}
+.field{margin-bottom:12px;}
+.formrow{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+
+.tabbar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.tabbtn{padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink-muted);border:1px solid var(--line);}
+.tabbtn.active{background:var(--bg-deep);color:var(--chalk);border-color:var(--chalk);}
+
+.modal-bg{position:fixed;inset:0;background:rgba(6,15,26,.65);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:22px;width:420px;max-width:92vw;max-height:88vh;overflow:auto;}
+.modal h3{font-family:var(--font-display);margin:0 0 14px;font-size:16px;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+
+.empty{color:var(--ink-muted);font-size:12.5px;padding:20px;text-align:center;font-family:var(--font-mono);}
+
+/* Attendance / camera */
+.camwrap{display:flex;gap:20px;flex-wrap:wrap;}
+.camstage{position:relative;width:340px;height:255px;border-radius:12px;overflow:hidden;background:var(--bg-deep);border:1px solid var(--line-strong);flex-shrink:0;}
+.camstage video, .camstage canvas{width:100%;height:100%;object-fit:cover;}
+.camstage canvas{position:absolute;top:0;left:0;pointer-events:none;}
+.guide{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:150px;height:190px;border:2px dashed rgba(125,211,252,.55);border-radius:50%;pointer-events:none;
+}
+.camstate{position:absolute;bottom:8px;left:8px;right:8px;font-family:var(--font-mono);font-size:10.5px;background:rgba(10,33,56,.75);padding:5px 9px;border-radius:6px;color:var(--chalk);}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.thumb{width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--line-strong);}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+.roster{flex:1;min-width:260px;}
+.roster-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line);}
+.roster-row img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid var(--line-strong);}
+.roster-row .name{font-weight:600;font-size:13px;}
+.roster-row .meta{font-size:11px;color:var(--ink-muted);font-family:var(--font-mono);}
+
+.hint{font-size:12px;color:var(--ink-muted);line-height:1.6;}
+.calibrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);}
+.calibrow:last-child{border-bottom:none;}
+
+.chart-box{height:230px;}
+
+.view{display:none;}
+.view.active{display:block;}
+
+.progress{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px;}
+.progress > div{height:100%;background:var(--chalk);}
+
+@media(max-width:820px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{position:relative;height:auto;flex-direction:row;overflow-x:auto;align-items:center;}
+  .navgroup-label{display:none;}
+  .sidebar-foot{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">LG</div>
+      <div>
+        <div class="brand-name">LabGrid</div>
+        <div class="brand-sub">Cloud Lab Console</div>
+      </div>
+    </div>
+    <div class="navgroup-label">Overview</div>
+    <div class="navbtn active" data-view="dashboard"><span class="dot"></span>Dashboard</div>
+    <div class="navgroup-label">Laboratories</div>
+    <div class="navbtn" data-view="de"><span class="dot"></span>Digital Electronics</div>
+    <div class="navbtn" data-view="nano"><span class="dot"></span>Nanotechnology</div>
+    <div class="navbtn" data-view="iot"><span class="dot"></span>IoT Lab</div>
+    <div class="navgroup-label">Operations</div>
+    <div class="navbtn" data-view="attendance"><span class="dot"></span>Face Attendance</div>
+    <div class="navbtn" data-view="bookings"><span class="dot"></span>Bookings</div>
+    <div class="navbtn" data-view="reports"><span class="dot"></span>Reports</div>
+    <div class="sidebar-foot"><span class="pulse"></span> Cloud sync active<br>Data stored privately to your account</div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Lab Operations Overview</h1>
+          <div class="sub" id="today-str">—</div>
+        </div>
+        <div class="ticker" id="ticker">Loading live status…</div>
+      </div>
+
+      <div class="grid kpis">
+        <div class="frame"><div class="kpi-label">Total Resources</div><div class="kpi-value" id="k-total">–</div><div class="kpi-delta">Across 3 laboratories</div></div>
+        <div class="frame"><div class="kpi-label">Available Now</div><div class="kpi-value" id="k-avail">–</div><div class="kpi-delta" id="k-avail-sub">Ready to book</div></div>
+        <div class="frame"><div class="kpi-label">Needs Maintenance / Calibration</div><div class="kpi-value" id="k-maint">–</div><div class="kpi-delta">Flagged items</div></div>
+        <div class="frame"><div class="kpi-label">Today's Attendance</div><div class="kpi-value" id="k-att">–</div><div class="kpi-delta" id="k-att-sub">Marked via face recognition</div></div>
+      </div>
+
+      <div class="grid cards2">
+        <div class="frame">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:14.5px;margin-bottom:10px;">Resource Utilization by Lab</div>
+          <div class="chart-box"><canvas id="chart-util"></canvas></div>
+        </div>
+        <div class="frame">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:14.5px;margin-bottom:10px;">Calibration &amp; Maintenance Alerts</div>
+          <div id="dash-alerts"></div>
+        </div>
+      </div>
+
+      <div class="section-title"><span class="bar"></span>Recent Activity</div>
+      <div class="frame"><table><thead><tr><th>Time</th><th>Event</th><th>Lab</th></tr></thead><tbody id="activity-body"></tbody></table></div>
+    </div>
+
+    <!-- DIGITAL ELECTRONICS -->
+    <div class="view" id="view-de">
+      <div class="topbar">
+        <div><h1>Digital Electronics Lab</h1><div class="sub">IC kits · Trainer kits · Oscilloscopes</div></div>
+        <button class="btn primary" onclick="openItemModal('de')">+ Add Equipment</button>
+      </div>
+      <div class="frame">
+        <table>
+          <thead><tr><th>Equipment</th><th>Category</th><th>Total</th><th>Available</th><th>In Use</th><th>Status</th><th></th></tr></thead>
+          <tbody id="de-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NANOTECH -->
+    <div class="view" id="view-nano">
+      <div class="topbar">
+        <div><h1>Nanotechnology Lab</h1><div class="sub">Chemical inventory · Sample tracking · Calibration</div></div>
+        <button class="btn primary" onclick="openItemModal('nanoChem')">+ Add Chemical</button>
+      </div>
+
+      <div class="section-title"><span class="bar"></span>Chemical Inventory</div>
+      <div class="frame">
+        <table><thead><tr><th>Chemical</th><th>Quantity</th><th>Hazard Level</th><th>Expiry</th><th>Status</th><th></th></tr></thead>
+        <tbody id="nano-chem-body"></tbody></table>
+      </div>
+
+      <div class="grid cards2" style="margin-top:20px;">
+        <div class="frame">
+          <div class="section-title" style="margin-top:0;"><span class="bar"></span>Sample Count</div>
+          <table><thead><tr><th>Batch</th><th>Samples</th><th>Stored In</th><th></th></tr></thead><tbody id="nano-sample-body"></tbody></table>
+          <button class="btn sm" style="margin-top:10px;" onclick="openItemModal('nanoSample')">+ Log Sample Batch</button>
+        </div>
+        <div class="frame">
+          <div class="section-title" style="margin-top:0;"><span class="bar"></span>Calibration Reminders</div>
+          <div id="nano-calib-list"></div>
+          <button class="btn sm" style="margin-top:10px;" onclick="openItemModal('nanoCalib')">+ Add Instrument</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IOT -->
+    <div class="view" id="view-iot">
+      <div class="topbar">
+        <div><h1>IoT Lab</h1><div class="sub">Dev boards · Connected devices · Sensor kits</div></div>
+        <button class="btn primary" onclick="openItemModal('iotBoard')">+ Add Boards</button>
+      </div>
+
+      <div class="section-title"><span class="bar"></span>Development Boards</div>
+      <div class="frame">
+        <table><thead><tr><th>Board</th><th>Total</th><th>Available</th><th>In Use</th><th>Status</th><th></th></tr></thead><tbody id="iot-board-body"></tbody></table>
+      </div>
+
+      <div class="grid cards2" style="margin-top:20px;">
+        <div class="frame">
+          <div class="section-title" style="margin-top:0;"><span class="bar"></span>Connected IoT Devices</div>
+          <table><thead><tr><th>Device</th><th>Location</th><th>Status</th></tr></thead><tbody id="iot-device-body"></tbody></table>
+          <button class="btn sm" style="margin-top:10px;" onclick="openItemModal('iotDevice')">+ Add Device</button>
+        </div>
+        <div class="frame">
+          <div class="section-title" style="margin-top:0;"><span class="bar"></span>Sensor Kits</div>
+          <table><thead><tr><th>Sensor Kit</th><th>Total</th><th>Available</th></tr></thead><tbody id="iot-sensor-body"></tbody></table>
+          <button class="btn sm" style="margin-top:10px;" onclick="openItemModal('iotSensor')">+ Add Sensor Kit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div class="view" id="view-attendance">
+      <div class="topbar">
+        <div><h1>Face Recognition Attendance</h1><div class="sub">Register students once, then mark attendance from live camera</div></div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tabbtn active" data-atab="mark">Mark Attendance</div>
+        <div class="tabbtn" data-atab="register">Register Student</div>
+        <div class="tabbtn" data-atab="log">Today's Log</div>
+      </div>
+
+      <div id="atab-mark">
+        <div class="frame">
+          <div class="camwrap">
+            <div>
+              <div class="camstage">
+                <video id="video-mark" autoplay muted playsinline></video>
+                <div class="guide"></div>
+                <div class="camstate" id="mark-state">Camera off</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn primary" id="btn-cam-start" onclick="startCamera('mark')">Start Camera</button>
+                <button class="btn amber" id="btn-recognize" onclick="recognizeFace()" disabled>Scan &amp; Mark Present</button>
+              </div>
+              <p class="hint" style="margin-top:10px;">Center your face inside the oval, hold still, then click <b>Scan &amp; Mark Present</b>. Matching runs entirely in your browser against registered face captures.</p>
+            </div>
+            <div class="roster">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:8px;">Registered Students (<span id="roster-count">0</span>)</div>
+              <div id="roster-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="atab-register" style="display:none;">
+        <div class="frame">
+          <div class="camwrap">
+            <div>
+              <div class="camstage">
+                <video id="video-register" autoplay muted playsinline></video>
+                <div class="guide"></div>
+                <div class="camstate" id="reg-state">Camera off</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn primary" onclick="startCamera('register')">Start Camera</button>
+                <button class="btn" id="btn-capture" onclick="captureFace()" disabled>Capture Face</button>
+              </div>
+              <div class="thumbs" id="capture-thumb"></div>
+            </div>
+            <div style="flex:1;min-width:240px;">
+              <div class="field"><label>Full Name</label><input id="reg-name" placeholder="e.g. Aarav Sharma"></div>
+              <div class="field"><label>Roll No. / ID</label><input id="reg-roll" placeholder="e.g. IT2024-041"></div>
+              <div class="field"><label>Course / Lab Batch</label><input id="reg-batch" placeholder="e.g. IoT Lab — Batch B"></div>
+              <button class="btn primary" onclick="saveStudent()">Save Student</button>
+              <p class="hint" style="margin-top:12px;">Capture 1 clear frontal photo in good light. You can re-capture before saving.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="atab-log" style="display:none;">
+        <div class="frame">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14.5px;">Attendance — <span id="log-date"></span></div>
+            <button class="btn sm" onclick="exportCSV()">Export CSV</button>
+          </div>
+          <table><thead><tr><th>Student</th><th>Roll No.</th><th>Time Marked</th><th>Match Confidence</th><th>Status</th></tr></thead><tbody id="log-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div class="view" id="view-bookings">
+      <div class="topbar">
+        <div><h1>Resource Bookings</h1><div class="sub">Reserve lab equipment and avoid double-booking</div></div>
+        <button class="btn primary" onclick="openBookingModal()">+ New Booking</button>
+      </div>
+      <div class="frame">
+        <table><thead><tr><th>Lab</th><th>Resource</th><th>Booked By</th><th>Date</th><th>Slot</th><th>Purpose</th><th>Status</th><th></th></tr></thead><tbody id="bookings-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="view" id="view-reports">
+      <div class="topbar"><div><h1>Reports</h1><div class="sub">Attendance history and inventory summary</div></div></div>
+      <div class="grid cards2">
+        <div class="frame">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:14.5px;margin-bottom:10px;">Attendance by Date</div>
+          <table><thead><tr><th>Date</th><th>Present</th><th>Registered</th><th>Rate</th></tr></thead><tbody id="report-att-body"></tbody></table>
+        </div>
+        <div class="frame">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:14.5px;margin-bottom:10px;">Inventory Summary</div>
+          <div class="chart-box"><canvas id="chart-inv"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Generic Item Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal" id="modal-body"></div>
+</div>
+
+<script>
+/* ---------------- Storage helpers ---------------- */
+const SHARED = false;
+async function sget(key, fallback){
+  try{ const r = await window.storage.get(key, SHARED); return r ? JSON.parse(r.value) : fallback; }
+  catch(e){ return fallback; }
+}
+async function sset(key, value){
+  try{ await window.storage.set(key, JSON.stringify(value), SHARED); }catch(e){ console.error('storage set failed', e); }
+}
+
+/* ---------------- App State ---------------- */
+let DB = {
+  de: [], nanoChem: [], nanoSample: [], nanoCalib: [],
+  iotBoard: [], iotDevice: [], iotSensor: [],
+  bookings: [], students: [], attendance: [], activity: []
+};
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function nowStr(){ return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function logActivity(text, lab){
+  DB.activity.unshift({time: new Date().toLocaleString([], {hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'}), text, lab});
+  DB.activity = DB.activity.slice(0,40);
+}
+
+/* ---------------- Seed data ---------------- */
+function seedIfEmpty(){
+  if(DB.de.length===0){
+    DB.de = [
+      {id:uid(), name:'8-bit IC Trainer Kit', cat:'Trainer Kit', total:20, inUse:4},
+      {id:uid(), name:'7400 Series IC Kit', cat:'IC Kit', total:60, inUse:12},
+      {id:uid(), name:'Digital Storage Oscilloscope', cat:'Oscilloscope', total:10, inUse:9},
+      {id:uid(), name:'Logic Analyzer', cat:'Trainer Kit', total:8, inUse:1},
+    ];
+  }
+  if(DB.nanoChem.length===0){
+    DB.nanoChem = [
+      {id:uid(), name:'Silver Nitrate (AgNO3)', qty:'250 ml', hazard:'High', expiry:'2026-11-10'},
+      {id:uid(), name:'Ethanol (Absolute)', qty:'2 L', hazard:'Medium', expiry:'2027-02-01'},
+      {id:uid(), name:'Titanium Dioxide Powder', qty:'500 g', hazard:'Low', expiry:'2028-01-15'},
+    ];
+  }
+  if(DB.nanoSample.length===0){
+    DB.nanoSample = [{id:uid(), batch:'NP-2026-A', count:34, storage:'Cold Storage 1'}];
+  }
+  if(DB.nanoCalib.length===0){
+    DB.nanoCalib = [
+      {id:uid(), name:'Atomic Force Microscope', last:'2026-05-12', next:'2026-08-12'},
+      {id:uid(), name:'UV-Vis Spectrophotometer', last:'2026-06-20', next:'2026-09-20'},
+      {id:uid(), name:'Zeta Potential Analyzer', last:'2026-02-01', next:'2026-08-01'},
+    ];
+  }
+  if(DB.iotBoard.length===0){
+    DB.iotBoard = [
+      {id:uid(), name:'Arduino Uno R3', total:40, inUse:15},
+      {id:uid(), name:'ESP32 DevKit', total:30, inUse:22},
+      {id:uid(), name:'Raspberry Pi 4', total:15, inUse:14},
+    ];
+  }
+  if(DB.iotDevice.length===0){
+    DB.iotDevice = [
+      {id:uid(), name:'Smart Irrigation Node', loc:'Bench 3', online:true},
+      {id:uid(), name:'Weather Station Node', loc:'Rooftop Rig', online:true},
+      {id:uid(), name:'RFID Access Node', loc:'Bench 7', online:false},
+    ];
+  }
+  if(DB.iotSensor.length===0){
+    DB.iotSensor = [
+      {id:uid(), name:'DHT22 Temp/Humidity Kit', total:25, avail:9},
+      {id:uid(), name:'PIR Motion Kit', total:20, avail:14},
+      {id:uid(), name:'MQ-2 Gas Sensor Kit', total:15, avail:6},
+    ];
+  }
+  if(DB.activity.length===0){
+    logActivity('System initialized', 'System');
+  }
+}
+
+/* ---------------- Persistence ---------------- */
+async function loadAll(){
+  DB.de = await sget('de-inventory', []);
+  DB.nanoChem = await sget('nano-chem', []);
+  DB.nanoSample = await sget('nano-sample', []);
+  DB.nanoCalib = await sget('nano-calib', []);
+  DB.iotBoard = await sget('iot-board', []);
+  DB.iotDevice = await sget('iot-device', []);
+  DB.iotSensor = await sget('iot-sensor', []);
+  DB.bookings = await sget('bookings', []);
+  DB.students = await sget('students', []);
+  DB.attendance = await sget('attendance', []);
+  DB.activity = await sget('activity', []);
+  seedIfEmpty();
+  await saveAll();
+}
+async function saveAll(){
+  await Promise.all([
+    sset('de-inventory', DB.de),
+    sset('nano-chem', DB.nanoChem),
+    sset('nano-sample', DB.nanoSample),
+    sset('nano-calib', DB.nanoCalib),
+    sset('iot-board', DB.iotBoard),
+    sset('iot-device', DB.iotDevice),
+    sset('iot-sensor', DB.iotSensor),
+    sset('bookings', DB.bookings),
+    sset('students', DB.students),
+    sset('attendance', DB.attendance),
+    sset('activity', DB.activity),
+  ]);
+}
+
+/* ---------------- Navigation ---------------- */
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view==='dashboard') renderDashboard();
+    if(btn.dataset.view==='reports') renderReports();
+  });
+});
+document.querySelectorAll('.tabbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['mark','register','log'].forEach(t=>{
+      document.getElementById('atab-'+t).style.display = (t===btn.dataset.atab)?'block':'none';
+    });
+    if(btn.dataset.atab==='log') renderLog();
+    if(btn.dataset.atab==='mark') renderRoster();
+  });
+});
+
+/* ---------------- Renderers: Digital Electronics ---------------- */
+function statusBadge(available, total){
+  const ratio = total? available/total : 0;
+  if(ratio===0) return '<span class="badge bad">Fully Booked</span>';
+  if(ratio<0.25) return '<span class="badge warn">Low Availability</span>';
+  return '<span class="badge good">Available</span>';
+}
+function renderDE(){
+  const body = document.getElementById('de-body');
+  body.innerHTML = DB.de.map(r=>{
+    const avail = r.total - r.inUse;
+    return `<tr>
+      <td>${r.name}</td><td>${r.cat}</td><td>${r.total}</td><td>${avail}</td><td>${r.inUse}</td>
+      <td>${statusBadge(avail,r.total)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn sm" ${avail<=0?'disabled':''} onclick="adjustUse('de','${r.id}',1)">Check Out</button>
+        <button class="btn sm" ${r.inUse<=0?'disabled':''} onclick="adjustUse('de','${r.id}',-1)">Return</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="empty">No equipment logged yet.</td></tr>`;
+}
+function adjustUse(key, id, delta){
+  const item = DB[key].find(x=>x.id===id);
+  if(!item) return;
+  item.inUse = Math.max(0, Math.min(item.total, item.inUse+delta));
+  saveAll();
+  logActivity(`${item.name} ${delta>0?'checked out':'returned'}`, key.startsWith('iot')?'IoT':key.startsWith('nano')?'Nanotech':'Digital Electronics');
+  renderAllViews();
+}
+
+/* ---------------- Renderers: Nanotech ---------------- */
+function daysUntil(dateStr){
+  const d = new Date(dateStr); const now = new Date();
+  return Math.ceil((d-now)/(1000*60*60*24));
+}
+function renderNano(){
+  document.getElementById('nano-chem-body').innerHTML = DB.nanoChem.map(c=>{
+    const d = daysUntil(c.expiry);
+    const status = d<0 ? '<span class="badge bad">Expired</span>' : d<45 ? '<span class="badge warn">Expiring Soon</span>' : '<span class="badge good">Stable</span>';
+    const hazardBadge = c.hazard==='High' ? '<span class="badge bad">High</span>' : c.hazard==='Medium' ? '<span class="badge warn">Medium</span>' : '<span class="badge good">Low</span>';
+    return `<tr><td>${c.name}</td><td>${c.qty}</td><td>${hazardBadge}</td><td>${c.expiry}</td><td>${status}</td>
+      <td><button class="btn ghost sm" onclick="removeItem('nanoChem','${c.id}')">Remove</button></td></tr>`;
+  }).join('') || `<tr><td colspan="6" class="empty">No chemicals logged.</td></tr>`;
+
+  document.getElementById('nano-sample-body').innerHTML = DB.nanoSample.map(s=>
+    `<tr><td>${s.batch}</td><td>${s.count}</td><td>${s.storage}</td>
+     <td><button class="btn ghost sm" onclick="removeItem('nanoSample','${s.id}')">Remove</button></td></tr>`
+  ).join('') || `<tr><td colspan="4" class="empty">No sample batches logged.</td></tr>`;
+
+  document.getElementById('nano-calib-list').innerHTML = DB.nanoCalib.map(c=>{
+    const d = daysUntil(c.next);
+    const badge = d<0 ? '<span class="badge bad">Overdue</span>' : d<14 ? '<span class="badge warn">Due Soon</span>' : '<span class="badge good">On Track</span>';
+    return `<div class="calibrow"><div><div style="font-weight:600;">${c.name}</div>
+      <div class="hint">Next due ${c.next} · Last done ${c.last}</div></div>${badge}</div>`;
+  }).join('') || `<div class="empty">No instruments tracked.</div>`;
+}
+
+/* ---------------- Renderers: IoT ---------------- */
+function renderIoT(){
+  document.getElementById('iot-board-body').innerHTML = DB.iotBoard.map(r=>{
+    const avail = r.total - r.inUse;
+    return `<tr><td>${r.name}</td><td>${r.total}</td><td>${avail}</td><td>${r.inUse}</td><td>${statusBadge(avail,r.total)}</td>
+      <td><button class="btn sm" ${avail<=0?'disabled':''} onclick="adjustUse('iotBoard','${r.id}',1)">Check Out</button>
+      <button class="btn sm" ${r.inUse<=0?'disabled':''} onclick="adjustUse('iotBoard','${r.id}',-1)">Return</button></td></tr>`;
+  }).join('') || `<tr><td colspan="6" class="empty">No boards logged.</td></tr>`;
+
+  document.getElementById('iot-device-body').innerHTML = DB.iotDevice.map(d=>
+    `<tr><td>${d.name}</td><td>${d.loc}</td><td>${d.online?'<span class="badge good">Online</span>':'<span class="badge bad">Offline</span>'}</td></tr>`
+  ).join('') || `<tr><td colspan="3" class="empty">No connected devices.</td></tr>`;
+
+  document.getElementById('iot-sensor-body').innerHTML = DB.iotSensor.map(s=>
+    `<tr><td>${s.name}</td><td>${s.total}</td><td>${s.avail}</td></tr>`
+  ).join('') || `<tr><td colspan="3" class="empty">No sensor kits logged.</td></tr>`;
+}
+
+function removeItem(key, id){
+  DB[key] = DB[key].filter(x=>x.id!==id);
+  saveAll(); renderAllViews();
+}
+
+/* ---------------- Item Modal (Add flows) ---------------- */
+const modalBg = document.getElementById('modal-bg');
+const modalBody = document.getElementById('modal-body');
+function closeModal(){ modalBg.classList.remove('open'); modalBody.innerHTML=''; }
+modalBg.addEventListener('click', e=>{ if(e.target===modalBg) closeModal(); });
+
+function openItemModal(type){
+  const configs = {
+    de: {title:'Add Digital Electronics Equipment', fields:[['name','Equipment Name'],['cat','Category (IC Kit / Trainer Kit / Oscilloscope)'],['total','Total Units','number']]},
+    nanoChem: {title:'Add Chemical', fields:[['name','Chemical Name'],['qty','Quantity (e.g. 250 ml)'],['hazard','Hazard Level (Low/Medium/High)'],['expiry','Expiry Date','date']]},
+    nanoSample: {title:'Log Sample Batch', fields:[['batch','Batch ID'],['count','Sample Count','number'],['storage','Storage Location']]},
+    nanoCalib: {title:'Add Instrument for Calibration', fields:[['name','Instrument Name'],['last','Last Calibration','date'],['next','Next Due','date']]},
+    iotBoard: {title:'Add Development Boards', fields:[['name','Board Name (Arduino/ESP32/Raspberry Pi)'],['total','Total Units','number']]},
+    iotDevice: {title:'Add Connected Device', fields:[['name','Device Name'],['loc','Location']]},
+    iotSensor: {title:'Add Sensor Kit', fields:[['name','Sensor Kit Name'],['total','Total Units','number']]},
+  };
+  const cfg = configs[type];
+  modalBody.innerHTML = `<h3>${cfg.title}</h3>
+    ${cfg.fields.map(f=>`<div class="field"><label>${f[1]}</label><input id="mf-${f[0]}" type="${f[2]||'text'}"></div>`).join('')}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="submitItemModal('${type}')">Save</button></div>`;
+  modalBg.classList.add('open');
+}
+function submitItemModal(type){
+  const configs = {
+    de:['name','cat','total'], nanoChem:['name','qty','hazard','expiry'], nanoSample:['batch','count','storage'],
+    nanoCalib:['name','last','next'], iotBoard:['name','total'], iotDevice:['name','loc'], iotSensor:['name','total']
+  };
+  const fields = configs[type];
+  const rec = {id:uid()};
+  fields.forEach(f=> rec[f] = document.getElementById('mf-'+f).value );
+  if(!rec.name && !rec.batch){ alert('Please fill in a name.'); return; }
+  if('total' in rec){ rec.total = parseInt(rec.total)||0; rec.inUse = 0; }
+  if('count' in rec){ rec.count = parseInt(rec.count)||0; }
+  if(type==='iotSensor'){ rec.avail = rec.total; }
+  DB[type].push(rec);
+  saveAll();
+  logActivity(`Added ${rec.name||rec.batch} to inventory`, type.startsWith('iot')?'IoT':type.startsWith('nano')?'Nanotech':'Digital Electronics');
+  closeModal();
+  renderAllViews();
+}
+
+/* ---------------- Bookings ---------------- */
+function openBookingModal(){
+  const allResources = [
+    ...DB.de.map(r=>({lab:'Digital Electronics', name:r.name})),
+    ...DB.nanoChem.map(r=>({lab:'Nanotechnology', name:r.name})),
+    ...DB.iotBoard.map(r=>({lab:'IoT Lab', name:r.name})),
+    ...DB.iotSensor.map(r=>({lab:'IoT Lab', name:r.name})),
+  ];
+  modalBody.innerHTML = `<h3>New Booking</h3>
+    <div class="field"><label>Resource</label><select id="bk-resource">${allResources.map(r=>`<option value="${r.lab}|${r.name}">${r.lab} — ${r.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Booked By</label><input id="bk-user" placeholder="Name"></div>
+    <div class="formrow">
+      <div class="field"><label>Date</label><input id="bk-date" type="date" value="${todayStr()}"></div>
+      <div class="field"><label>Time Slot</label><input id="bk-slot" placeholder="e.g. 10:00–12:00"></div>
+    </div>
+    <div class="field"><label>Purpose</label><input id="bk-purpose" placeholder="e.g. Semester project testing"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="submitBooking()">Confirm Booking</button></div>`;
+  modalBg.classList.add('open');
+}
+function submitBooking(){
+  const [lab,resource] = document.getElementById('bk-resource').value.split('|');
+  const user = document.getElementById('bk-user').value || 'Unassigned';
+  const date = document.getElementById('bk-date').value;
+  const slot = document.getElementById('bk-slot').value || 'Full day';
+  const purpose = document.getElementById('bk-purpose').value;
+  DB.bookings.unshift({id:uid(), lab, resource, user, date, slot, purpose, status:'Confirmed'});
+  saveAll();
+  logActivity(`${user} booked ${resource}`, lab);
+  closeModal();
+  renderBookings(); renderDashboard();
+}
+function renderBookings(){
+  document.getElementById('bookings-body').innerHTML = DB.bookings.map(b=>`
+    <tr><td>${b.lab}</td><td>${b.resource}</td><td>${b.user}</td><td>${b.date}</td><td>${b.slot}</td><td>${b.purpose||'—'}</td>
+    <td><span class="badge ${b.status==='Confirmed'?'good':'bad'}">${b.status}</span></td>
+    <td><button class="btn ghost sm" onclick="cancelBooking('${b.id}')">Cancel</button></td></tr>`
+  ).join('') || `<tr><td colspan="8" class="empty">No bookings yet. Click "New Booking" to reserve equipment.</td></tr>`;
+}
+function cancelBooking(id){
+  const b = DB.bookings.find(x=>x.id===id);
+  if(b){ b.status='Cancelled'; saveAll(); renderBookings(); }
+}
+
+/* ---------------- Face Attendance ---------------- */
+let streams = {};
+async function startCamera(which){
+  const video = document.getElementById('video-'+which);
+  const stateEl = document.getElementById(which==='mark'?'mark-state':'reg-state');
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{width:340,height:255, facingMode:'user'}});
+    streams[which] = stream;
+    video.srcObject = stream;
+    stateEl.textContent = 'Camera live — center your face';
+    if(which==='mark') document.getElementById('btn-recognize').disabled = false;
+    if(which==='register') document.getElementById('btn-capture').disabled = false;
+  }catch(e){
+    stateEl.textContent = 'Camera unavailable: ' + e.message;
+  }
+}
+
+// Downsample the centered oval region to a small grayscale descriptor
+function getDescriptorFromVideo(video){
+  const size = 32;
+  const c = document.createElement('canvas'); c.width=size; c.height=size;
+  const ctx = c.getContext('2d');
+  const vw = video.videoWidth||340, vh = video.videoHeight||255;
+  const cropW = vw*0.42, cropH = vh*0.62;
+  const sx = (vw-cropW)/2, sy = (vh-cropH)/2;
+  ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, size, size);
+  const data = ctx.getImageData(0,0,size,size).data;
+  const gray = [];
+  for(let i=0;i<data.length;i+=4){
+    gray.push(0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]);
+  }
+  const mean = gray.reduce((a,b)=>a+b,0)/gray.length;
+  const std = Math.sqrt(gray.reduce((a,b)=>a+(b-mean)*(b-mean),0)/gray.length) || 1;
+  return gray.map(v=>(v-mean)/std);
+}
+function thumbFromVideo(video){
+  const c = document.createElement('canvas'); c.width=120; c.height=150;
+  const ctx = c.getContext('2d');
+  const vw = video.videoWidth||340, vh = video.videoHeight||255;
+  const cropW = vw*0.42, cropH = vh*0.62;
+  const sx = (vw-cropW)/2, sy = (vh-cropH)/2;
+  ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, 120, 150);
+  return c.toDataURL('image/jpeg', 0.7);
+}
+function distance(a,b){
+  let sum=0; for(let i=0;i<a.length;i++){ const d=a[i]-b[i]; sum += d*d; }
+  return Math.sqrt(sum/a.length);
+}
+
+let pendingCapture = null;
+function captureFace(){
+  const video = document.getElementById('video-register');
+  if(!video.videoWidth){ alert('Camera still starting up, try again in a second.'); return; }
+  pendingCapture = { descriptor: getDescriptorFromVideo(video), thumb: thumbFromVideo(video) };
+  document.getElementById('capture-thumb').innerHTML = `<div class="thumb"><img src="${pendingCapture.thumb}"></div>`;
+  document.getElementById('reg-state').textContent = 'Face captured ✓ — fill in details and save';
+}
+async function saveStudent(){
+  const name = document.getElementById('reg-name').value.trim();
+  const roll = document.getElementById('reg-roll').value.trim();
+  const batch = document.getElementById('reg-batch').value.trim();
+  if(!name){ alert('Enter the student name.'); return; }
+  if(!pendingCapture){ alert('Capture a face photo first.'); return; }
+  DB.students.push({id:uid(), name, roll, batch, descriptor:pendingCapture.descriptor, thumb:pendingCapture.thumb});
+  await saveAll();
+  logActivity(`Registered new student: ${name}`, 'Attendance');
+  pendingCapture = null;
+  document.getElementById('capture-thumb').innerHTML='';
+  document.getElementById('reg-name').value=''; document.getElementById('reg-roll').value=''; document.getElementById('reg-batch').value='';
+  document.getElementById('reg-state').textContent = 'Saved ✓ — capture next student';
+  renderRoster();
+}
+
+function renderRoster(){
+  document.getElementById('roster-count').textContent = DB.students.length;
+  document.getElementById('roster-list').innerHTML = DB.students.map(s=>{
+    const marked = DB.attendance.some(a=>a.studentId===s.id && a.date===todayStr());
+    return `<div class="roster-row"><img src="${s.thumb}"><div style="flex:1;">
+      <div class="name">${s.name}</div><div class="meta">${s.roll||'—'} · ${s.batch||'—'}</div></div>
+      ${marked?'<span class="badge good">Present</span>':'<span class="badge chalk">Pending</span>'}</div>`;
+  }).join('') || `<div class="empty">No students registered yet. Use the "Register Student" tab.</div>`;
+}
+
+function recognizeFace(){
+  const video = document.getElementById('video-mark');
+  const stateEl = document.getElementById('mark-state');
+  if(!video.videoWidth){ stateEl.textContent='Camera still starting up…'; return; }
+  if(DB.students.length===0){ stateEl.textContent='No students registered yet.'; return; }
+  const desc = getDescriptorFromVideo(video);
+  let best=null, bestDist=Infinity;
+  DB.students.forEach(s=>{
+    const d = distance(desc, s.descriptor);
+    if(d<bestDist){ bestDist=d; best=s; }
+  });
+  const THRESHOLD = 0.98;
+  if(bestDist > THRESHOLD){
+    stateEl.textContent = `No confident match (Δ${bestDist.toFixed(2)}). Try better lighting / centering.`;
+    return;
+  }
+  const confidence = Math.max(0, Math.round((1 - bestDist/THRESHOLD)*100));
+  const already = DB.attendance.find(a=>a.studentId===best.id && a.date===todayStr());
+  if(already){
+    stateEl.textContent = `${best.name} already marked present today at ${already.time}.`;
+    return;
+  }
+  DB.attendance.unshift({id:uid(), studentId:best.id, name:best.name, roll:best.roll, date:todayStr(), time:nowStr(), confidence, status:'Present'});
+  saveAll();
+  logActivity(`${best.name} marked present (face match ${confidence}%)`, 'Attendance');
+  stateEl.textContent = `✓ ${best.name} marked present — confidence ${confidence}%`;
+  renderRoster(); renderLog(); renderDashboard();
+}
+
+function renderLog(){
+  document.getElementById('log-date').textContent = todayStr();
+  const todays = DB.attendance.filter(a=>a.date===todayStr());
+  document.getElementById('log-body').innerHTML = todays.map(a=>
+    `<tr><td>${a.name}</td><td>${a.roll||'—'}</td><td>${a.time}</td><td>${a.confidence}%</td><td><span class="badge good">${a.status}</span></td></tr>`
+  ).join('') || `<tr><td colspan="5" class="empty">No attendance marked yet today.</td></tr>`;
+}
+function exportCSV(){
+  const rows = [['Name','Roll No','Date','Time','Confidence','Status'], ...DB.attendance.map(a=>[a.name,a.roll||'',a.date,a.time,a.confidence+'%',a.status])];
+  const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='attendance_export.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------- Dashboard ---------------- */
+let utilChart, invChart;
+function renderDashboard(){
+  document.getElementById('today-str').textContent = new Date().toLocaleDateString([], {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  const totalDE = DB.de.reduce((s,r)=>s+r.total,0);
+  const totalIoTb = DB.iotBoard.reduce((s,r)=>s+r.total,0);
+  const totalIoTs = DB.iotSensor.reduce((s,r)=>s+r.total,0);
+  const totalNano = DB.nanoChem.length + DB.nanoSample.reduce((s,r)=>s+ (parseInt(r.count)||0),0);
+  const totalAll = totalDE + totalIoTb + totalIoTs + DB.nanoChem.length;
+
+  const availDE = DB.de.reduce((s,r)=>s+(r.total-r.inUse),0);
+  const availIoT = DB.iotBoard.reduce((s,r)=>s+(r.total-r.inUse),0);
+  const availAll = availDE + availIoT + DB.iotSensor.reduce((s,r)=>s+r.avail,0);
+
+  const overdueCalib = DB.nanoCalib.filter(c=>daysUntil(c.next)<14).length;
+  const expiringChem = DB.nanoChem.filter(c=>daysUntil(c.expiry)<45).length;
+
+  document.getElementById('k-total').textContent = totalAll;
+  document.getElementById('k-avail').textContent = availAll;
+  document.getElementById('k-avail-sub').textContent = totalAll? Math.round(availAll/totalAll*100)+'% of fleet free' : '—';
+  document.getElementById('k-maint').textContent = overdueCalib + expiringChem;
+
+  const todays = DB.attendance.filter(a=>a.date===todayStr()).length;
+  document.getElementById('k-att').textContent = DB.students.length? `${todays}/${DB.students.length}` : '0/0';
+  document.getElementById('k-att-sub').textContent = DB.students.length? Math.round(todays/DB.students.length*100)+'% present today' : 'No students registered';
+
+  // ticker
+  const tickerBits = [];
+  if(overdueCalib) tickerBits.push(`⚠ ${overdueCalib} instrument(s) due for calibration`);
+  if(expiringChem) tickerBits.push(`⚠ ${expiringChem} chemical(s) nearing expiry`);
+  const lowStock = [...DB.de, ...DB.iotBoard].filter(r=>(r.total-r.inUse)<=Math.max(1,r.total*0.1));
+  if(lowStock.length) tickerBits.push(`${lowStock.length} item(s) running low`);
+  document.getElementById('ticker').textContent = tickerBits.length? tickerBits.join('   •   ') : 'All systems nominal — no alerts';
+
+  // alerts panel
+  const alerts = [
+    ...DB.nanoCalib.filter(c=>daysUntil(c.next)<14).map(c=>({label:c.name, sub:`Calibration due ${c.next}`, bad:daysUntil(c.next)<0})),
+    ...DB.nanoChem.filter(c=>daysUntil(c.expiry)<45).map(c=>({label:c.name, sub:`Expires ${c.expiry}`, bad:daysUntil(c.expiry)<0})),
+  ];
+  document.getElementById('dash-alerts').innerHTML = alerts.length ? alerts.map(a=>
+    `<div class="calibrow"><div><div style="font-weight:600;">${a.label}</div><div class="hint">${a.sub}</div></div>
+     <span class="badge ${a.bad?'bad':'warn'}">${a.bad?'Overdue':'Due Soon'}</span></div>`
+  ).join('') : `<div class="empty">No pending alerts.</div>`;
+
+  document.getElementById('activity-body').innerHTML = DB.activity.slice(0,10).map(a=>
+    `<tr><td style="font-family:var(--font-mono);font-size:11.5px;color:var(--ink-muted);">${a.time}</td><td>${a.text}</td><td><span class="badge chalk">${a.lab}</span></td></tr>`
+  ).join('') || `<tr><td colspan="3" class="empty">No activity yet.</td></tr>`;
+
+  // chart
+  const ctx = document.getElementById('chart-util');
+  const labs = ['Digital Electronics','Nanotechnology','IoT Lab'];
+  const inUseData = [DB.de.reduce((s,r)=>s+r.inUse,0), DB.nanoChem.length, DB.iotBoard.reduce((s,r)=>s+r.inUse,0)];
+  const availData = [availDE, DB.nanoSample.reduce((s,r)=>s+(parseInt(r.count)||0),0), availIoT];
+  if(utilChart) utilChart.destroy();
+  utilChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:labs, datasets:[
+      {label:'In Use / Logged', data:inUseData, backgroundColor:'#F5A524'},
+      {label:'Available', data:availData, backgroundColor:'#7DD3FC'},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ticks:{color:'#9FB8D1'}, grid:{color:'rgba(255,255,255,0.06)'}}, y:{ticks:{color:'#9FB8D1'}, grid:{color:'rgba(255,255,255,0.06)'}}},
+      plugins:{ legend:{labels:{color:'#EAF2FB', font:{family:'IBM Plex Sans', size:11}}}}
+    }
+  });
+}
+
+function renderReports(){
+  const byDate = {};
+  DB.attendance.forEach(a=>{ byDate[a.date] = (byDate[a.date]||0)+1; });
+  const dates = Object.keys(byDate).sort().reverse();
+  document.getElementById('report-att-body').innerHTML = dates.map(d=>{
+    const present = byDate[d];
+    const total = DB.students.length || 1;
+    return `<tr><td>${d}</td><td>${present}</td><td>${DB.students.length}</td><td>${Math.round(present/total*100)}%</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="empty">No attendance history yet.</td></tr>`;
+
+  const ctx = document.getElementById('chart-inv');
+  if(invChart) invChart.destroy();
+  invChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:['Digital Electronics','Nanotechnology Items','IoT Boards','IoT Sensor Kits'],
+      datasets:[{ data:[DB.de.reduce((s,r)=>s+r.total,0), DB.nanoChem.length+DB.nanoSample.length, DB.iotBoard.reduce((s,r)=>s+r.total,0), DB.iotSensor.reduce((s,r)=>s+r.total,0)],
+      backgroundColor:['#7DD3FC','#F5A524','#34D399','#F87171'] }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{color:'#EAF2FB', font:{family:'IBM Plex Sans', size:11}}}} }
+  });
+}
+
+/* ---------------- Master render ---------------- */
+function renderAllViews(){
+  renderDE(); renderNano(); renderIoT(); renderBookings(); renderRoster(); renderLog(); renderDashboard();
+}
+
+(async function init(){
+  await loadAll();
+  renderAllViews();
+})();
+</script>
+</body>
+</html>
